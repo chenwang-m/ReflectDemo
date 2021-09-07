@@ -5,6 +5,8 @@ import com.codingfuture.annotation.Table;
 import com.codingfuture.entity.Student;
 import com.codingfuture.util.JDBCUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.sql.Connection;
@@ -13,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public abstract class BaseDao<T, ID> {
 
@@ -21,6 +24,8 @@ public abstract class BaseDao<T, ID> {
     private final Class<T> T_CLASS;
     private final Field[] FIELDS;
     private final Field ID_FIELD;
+    private final Boolean LOGIC_DELETE;
+    private final String LOGIC_DELETE_COLUMN;
 
     {
         T_CLASS = (Class) ((ParameterizedType) this.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
@@ -48,6 +53,23 @@ public abstract class BaseDao<T, ID> {
         ID_FIELD = tempIdField;
         columnsBuilder.deleteCharAt(columnsBuilder.length() - 1);
         COLUMNS = columnsBuilder.toString();
+    }
+
+    {
+        InputStream resourceAsStream = T_CLASS.getClassLoader().getResourceAsStream("myjdbc.properties");
+        Properties properties = new Properties();
+        try {
+            properties.load(resourceAsStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        String property = properties.getProperty("logic_delect");
+        LOGIC_DELETE = Boolean.parseBoolean(property);
+        if (LOGIC_DELETE) {
+            LOGIC_DELETE_COLUMN = properties.getProperty("logic_delete_column");
+        } else {
+            LOGIC_DELETE_COLUMN = null;
+        }
     }
 
     public int add(T t) {
@@ -148,8 +170,14 @@ public abstract class BaseDao<T, ID> {
     public int deleteById(ID id) {
         //DELETE FROM student WHERE id = "10"
         int i = 0;
+        String sql = null;
         try (Connection connection = JDBCUtils.getConnection()) {
-            String sql = String.format("DELETE FROM %s WHERE %s = ?", TABLE_NAME, ID_FIELD.getName());
+            if (LOGIC_DELETE) {
+                System.out.println(ID_FIELD);
+                sql = String.format("UPDATE %s SET %s=1 where %s=?", TABLE_NAME, LOGIC_DELETE_COLUMN,ID_FIELD.getName());
+            } else {
+                sql = String.format("DELETE FROM %s WHERE %s = ?", TABLE_NAME, ID_FIELD.getName());
+            }
             PreparedStatement ps = connection.prepareStatement(sql);
             ps.setObject(1, id);
             return ps.executeUpdate();

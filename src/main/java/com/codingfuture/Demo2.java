@@ -7,11 +7,12 @@ public class Demo2 {
 
     public static void main(String[] args) throws Exception {
         Student student = new Student();
-        student.setId(1);
+        student.setId(2);
         student.setName("王六");
-        student.setAge(40);
+        student.setAge(20);
         StudentDao studentDao = new StudentDao();
         studentDao.add(student);
+        System.out.println(studentDao.deleteById(1));
         //studentDao.add(student);
         //System.out.println(studentDao.findById(10));
         //System.out.println(studentDao.deleteById(10));
