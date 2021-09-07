@@ -1,7 +1,9 @@
 package com.codingfuture.entity;
 
 import com.codingfuture.annotation.Id;
+import com.codingfuture.annotation.Table;
 
+@Table(prefix = "ims_")
 public class Student {
     // 注解
     @Id

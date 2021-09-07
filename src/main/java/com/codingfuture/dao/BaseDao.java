@@ -1,6 +1,7 @@
 package com.codingfuture.dao;
 
 import com.codingfuture.annotation.Id;
+import com.codingfuture.annotation.Table;
 import com.codingfuture.entity.Student;
 import com.codingfuture.util.JDBCUtils;
 
@@ -24,7 +25,13 @@ public abstract class BaseDao<T, ID> {
     {
         T_CLASS = (Class) ((ParameterizedType) this.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
         // TODO 表名转换不严谨，没有处理驼峰格式
-        TABLE_NAME = T_CLASS.getSimpleName().toLowerCase();
+        if (T_CLASS.isAnnotationPresent(Table.class)) {
+            Table table = T_CLASS.getAnnotation(Table.class);
+            String prefix = table.prefix();
+            TABLE_NAME = prefix + T_CLASS.getSimpleName().toLowerCase();
+        } else {
+            TABLE_NAME = T_CLASS.getSimpleName().toLowerCase();
+        }
         //访问属性
         FIELDS = T_CLASS.getDeclaredFields();
         StringBuilder columnsBuilder = new StringBuilder();
@@ -153,7 +160,7 @@ public abstract class BaseDao<T, ID> {
     }
 
     // TODO
-    public int updateById(T t,ID id) {
+    public int updateById(T t, ID id) {
         //UPDATE student set name = ?,age = ? WHERE id = ?
         int num = 0;
         StringBuilder updatePlaceholders = new StringBuilder();
@@ -170,18 +177,55 @@ public abstract class BaseDao<T, ID> {
             if (connection == null) {
                 return 0;
             }
-            String sql = String.format("UPDATE %s set %s WHERE %s = ?",TABLE_NAME,updatePlaceholders,ID_FIELD.getName());
+            String sql = String.format("UPDATE %s set %s WHERE %s = ?", TABLE_NAME, updatePlaceholders, ID_FIELD.getName());
             PreparedStatement ps = connection.prepareStatement(sql);
             for (int i = 1; i < FIELDS.length; i++) {
                 ps.setObject(i, FIELDS[i].get(t));
                 num++;
             }
-            ps.setObject(num+1,id);
+            ps.setObject(num + 1, id);
             return ps.executeUpdate();
         } catch (SQLException | IllegalAccessException e) {
-            System.out.println("update 失败"+e.getMessage());
+            System.out.println("update 失败" + e.getMessage());
             return 0;
         }
     }
 
+    //查询
+    public static <E> List<E> select(String sql, Class<E> resultType, Object... args) {
+        try (Connection connection = JDBCUtils.getConnection()) {
+            if (connection == null) {
+                return null;
+            }
+            PreparedStatement ps = connection.prepareStatement(sql);
+            for (int i = 0; i < args.length; i++) {
+                ps.setObject(i + 1, args[i]);
+            }
+            ResultSet resultSet = ps.executeQuery();
+
+            Field[] fields = resultType.getDeclaredFields();
+
+            List<E> list = new ArrayList<>();
+            while (resultSet.next()) {
+                E entity = resultType.newInstance();
+
+                for (Field field : fields) {
+                    field.setAccessible(true);
+                    Object fieldValue = resultSet.getObject(field.getName());
+                    field.set(entity, fieldValue);
+                }
+                list.add(entity);
+            }
+            return list;
+        } catch (SQLException e) {
+            System.out.println("SELECT 失败");
+            return null;
+        } catch (InstantiationException e) {
+            System.out.println("实例化异常");
+            return null;
+        } catch (IllegalAccessException e) {
+            System.out.println("非法访问");
+            return null;
+        }
+    }
 }
