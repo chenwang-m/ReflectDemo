@@ -173,7 +173,7 @@ public abstract class BaseDao<T, ID> {
         String sql = null;
         try (Connection connection = JDBCUtils.getConnection()) {
             if (LOGIC_DELETE) {
-                System.out.println(ID_FIELD);
+//                System.out.println(ID_FIELD);
                 sql = String.format("UPDATE %s SET %s=1 where %s=?", TABLE_NAME, LOGIC_DELETE_COLUMN,ID_FIELD.getName());
             } else {
                 sql = String.format("DELETE FROM %s WHERE %s = ?", TABLE_NAME, ID_FIELD.getName());
